@@ -6,10 +6,11 @@
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 
+#include <chrono>
 #include <cstdint>
-#include <cstring>
 #include <iostream>
 #include <memory>
+#include <thread>
 
 struct Monitor {
   std::unique_ptr<CCWlOutput> output;
@@ -21,7 +22,6 @@ struct Monitor {
 };
 static std::vector<Monitor> s_monitors;
 
-static std::unique_ptr<CCWlShm> s_shm; // todo: remove once vulkan is setup
 static std::unique_ptr<CCWlCompositor> s_compositor;
 static std::unique_ptr<CCZwlrLayerShellV1> s_LayerShell;
 
@@ -35,9 +35,6 @@ static void add_interface(void *data, struct wl_registry *registry,
     s_compositor =
         std::make_unique<CCWlCompositor>((wl_proxy *)wl_registry_bind(
             registry, name, &wl_compositor_interface, 4));
-  } else if (strcmp(interface, wl_shm_interface.name) == 0) {
-    s_shm = std::make_unique<CCWlShm>(
-        (wl_proxy *)wl_registry_bind(registry, name, &wl_shm_interface, 1));
   } else if (strcmp(interface, wl_output_interface.name) == 0) {
     auto output = std::make_unique<CCWlOutput>(
         (wl_proxy *)wl_registry_bind(registry, name, &wl_output_interface, 4));
@@ -66,7 +63,6 @@ int main() {
   }
 
   for (auto &monitor : s_monitors) {
-    // std::cout << "create wl_surface..." << std::endl;
     monitor.wl_surface =
         std::make_unique<CCWlSurface>(s_compositor->sendCreateSurface());
     monitor.layer_surface = std::make_unique<CCZwlrLayerSurfaceV1>(
@@ -107,11 +103,26 @@ int main() {
   }
 
   for (;;) {
+    const auto renderStart = std::chrono::system_clock::now();
     for (const auto &monitor : s_monitors) {
       monitor.renderer->frame();
     }
+    const auto renderEnd = std::chrono::system_clock::now();
+    const auto duration = renderEnd - renderStart;
+    const auto sleep_duration = std::chrono::milliseconds{16} -
+                                duration; // todo: ensure this is positive
+    const auto duration_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+    const auto sleep_time_us =
+        std::chrono::duration_cast<std::chrono::microseconds>(sleep_duration)
+            .count();
+    std::cout << "rendered vkpaper frame in " << duration_us / 1000.0f
+              << "ms, sleeping for " << sleep_time_us / 1000.0f << "ms..."
+              << std::endl;
+
+    std::this_thread::sleep_for(sleep_duration);
   }
 
-  // while (wl_display_dispatch(wl) != -1) {
-  // }
+  while (wl_display_dispatch(wl) != -1) {
+  }
 }

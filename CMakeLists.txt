@@ -21,3 +21,9 @@ add_executable(vkpaper main.cpp
     protocols/xdg-shell.cpp
 )
 target_link_libraries(vkpaper PkgConfig::deps vulkan)
+
+add_custom_target(shaders ALL
+    COMMAND glslc shaders/default.frag -o shaders/default.frag.spv
+    COMMAND glslc shaders/default.vert -o shaders/default.vert.spv
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)

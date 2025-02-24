@@ -17,9 +17,6 @@
 #include <stdexcept>
 #include <vector>
 
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
-
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::vector<const char *> validationLayers = {
@@ -27,6 +24,9 @@ const std::vector<const char *> validationLayers = {
 
 const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+const std::vector<const char *> instanceExtensions = {
+    "VK_EXT_debug_utils", "VK_KHR_surface", "VK_KHR_wayland_surface"};
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -99,7 +99,7 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-    {0.0f, -0.5f}, {0.5f, 0.5f}, {-0.5f, 0.5f}};
+    {-1.0f, -1.0f}, {3.0f, -1.0f}, {-1.0f, 3.0f}};
 
 class VkPaperRenderer {
 public:
@@ -152,7 +152,7 @@ private:
 
   void initVulkan() {
     createInstance();
-    // setupDebugMessenger();
+    setupDebugMessenger();
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
@@ -235,11 +235,9 @@ private:
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
-    // auto extensions = getRequiredExtensions();
-    auto extensions = std::vector<const char *>{
-        "VK_EXT_debug_utils", "VK_KHR_surface", "VK_KHR_wayland_surface"};
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    createInfo.ppEnabledExtensionNames = extensions.data();
+    createInfo.enabledExtensionCount =
+        static_cast<uint32_t>(instanceExtensions.size());
+    createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if (enableValidationLayers) {
@@ -460,7 +458,7 @@ private:
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = swapChainImageFormat;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -743,9 +741,8 @@ private:
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
-    VkClearValue clearColor = {{{0.5f, 0.5f, 1.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    renderPassInfo.clearValueCount = 0;
+    renderPassInfo.pClearValues = nullptr;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
                          VK_SUBPASS_CONTENTS_INLINE);
@@ -917,7 +914,7 @@ private:
         std::numeric_limits<uint32_t>::max()) {
       return capabilities.currentExtent;
     } else {
-      // todo pass reoslution into renderer correctly
+      // todo pass resolution into renderer correctly
       int width = 1920;
       int height = 1080;
 
