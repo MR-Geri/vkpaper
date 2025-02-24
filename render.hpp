@@ -6,6 +6,34 @@
 #include <optional>
 #include <vector>
 
+struct Vec3 {
+  float x;
+  float y;
+  float z;
+  float _unused; // account for the fact that vec3 has equal size to vec4 in
+                 // std140 layouts
+};
+
+struct Vec4 {
+  float x;
+  float y;
+  float z;
+  float w;
+};
+
+struct UniformBuffer {
+  float iTime;
+  float iTimeDelta;
+  float iFrameRate;
+  int iFrame;
+
+  Vec4 iMouse;
+  Vec3 iResolution;
+
+  Vec3 iChannelResolution[4];
+  float iChannelTime[4];
+};
+
 struct SwapChainSupportDetails {
   VkSurfaceCapabilitiesKHR capabilities;
   std::vector<VkSurfaceFormatKHR> formats;
@@ -30,6 +58,7 @@ public:
   ~VkPaperRenderer() { cleanup(); }
 
   void drawFrame();
+  void updateUniformBuffer(UniformBuffer uniformBuffer);
 
 private:
   void initVulkan();
@@ -50,6 +79,10 @@ private:
   void createFramebuffers();
   void createCommandPool();
   void createVertexBuffer();
+  void createUniformBuffers();
+  void createDescriptorPool();
+  void createDescriptorSets();
+  void createDescriptorSetLayout();
   uint32_t findMemoryType(uint32_t typeFilter,
                           VkMemoryPropertyFlags properties);
   void createCommandBuffers();
@@ -72,6 +105,7 @@ private:
   VkQueue graphicsQueue;
   VkQueue presentQueue;
 
+  // swapchain
   VkSwapchainKHR swapChain;
   std::vector<VkImage> swapChainImages;
   VkFormat swapChainImageFormat;
@@ -79,17 +113,30 @@ private:
   std::vector<VkImageView> swapChainImageViews;
   std::vector<VkFramebuffer> swapChainFramebuffers;
 
+  // render passes and pipelines
   VkRenderPass renderPass;
+  VkDescriptorSetLayout descriptorSetLayout;
   VkPipelineLayout pipelineLayout;
   VkPipeline graphicsPipeline;
 
-  VkCommandPool commandPool;
+  // uniform buffers
+  std::vector<VkBuffer> uniformBuffers;
+  std::vector<VkDeviceMemory> uniformBuffersMemory;
+  std::vector<void *> uniformBuffersMapped;
 
+  // descripors
+  VkDescriptorPool descriptorPool;
+  std::vector<VkDescriptorSet> descriptorSets;
+
+  // vertex buffers
   VkBuffer vertexBuffer;
   VkDeviceMemory vertexBufferMemory;
 
+  // command buffers
+  VkCommandPool commandPool;
   std::vector<VkCommandBuffer> commandBuffers;
 
+  // synchronization
   std::vector<VkSemaphore> imageAvailableSemaphores;
   std::vector<VkSemaphore> renderFinishedSemaphores;
   std::vector<VkFence> inFlightFences;

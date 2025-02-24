@@ -103,9 +103,24 @@ int main() {
         wl, (wl_surface *)monitor.wlSurface->resource());
   }
 
+  const auto programStartTime = std::chrono::system_clock::now();
+  int frameNumber = 0;
+
   for (;;) {
+    const auto timeSinceStart =
+        std::chrono::system_clock::now() - programStartTime;
+    const auto timeSinceStartFloat =
+        std::chrono::duration_cast<std::chrono::milliseconds>(timeSinceStart)
+            .count() /
+        1000.0f;
+    const auto currentUniforms = UniformBuffer{
+        timeSinceStartFloat, 0.0f, 60.0f, frameNumber++, Vec4{10, 10, 0, 0},
+        Vec3{1920, 1080, 0},
+    };
+
     const auto renderStart = std::chrono::system_clock::now();
     for (const auto &monitor : sMonitors) {
+      monitor.renderer->updateUniformBuffer(currentUniforms);
       monitor.renderer->drawFrame();
     }
     const auto renderEnd = std::chrono::system_clock::now();
@@ -118,7 +133,8 @@ int main() {
         std::chrono::duration_cast<std::chrono::microseconds>(sleep_duration)
             .count();
     std::cout << "rendered vkpaper frame in " << duration_us / 1000.0f
-              << "ms, sleeping for " << sleep_time_us / 1000.0f << "ms..."
+              << "ms, sleeping for " << sleep_time_us / 1000.0f
+              << "ms, elapsed time: " << timeSinceStartFloat << "s"
               << std::endl;
 
     std::this_thread::sleep_for(sleep_duration);
