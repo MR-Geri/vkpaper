@@ -15,7 +15,7 @@ pkg_check_modules(
     wayland-protocols
 )
 
-add_executable(vkpaper main.cpp
+add_executable(vkpaper main.cpp render.cpp
     protocols/wayland.cpp
     protocols/wlr-layer-shell-unstable-v1.cpp
     protocols/xdg-shell.cpp
