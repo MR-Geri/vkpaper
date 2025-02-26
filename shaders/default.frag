@@ -15,8 +15,14 @@ layout(std140, binding = 0) uniform UniformBufferObject {
 
     vec3 iChannelResolution[4];
     float iChannelTime[4];
-} ubo;
+};
+
+void mainImage(out vec4 frag_color, in vec2 frag_coord) {
+   frag_color = vec4(in_uv.x, in_uv.y, sin(iTime) * 0.5 + 0.5, 1.0); 
+}
 
 void main() {
-    out_color = vec4(in_uv.x, in_uv.y, sin(ubo.iTime) * 0.5 + 0.5, 1.0);
+    vec2 opengl_fragcoord = vec2(gl_FragCoord.x, iResolution.y - gl_FragCoord.y);
+    mainImage(out_color, opengl_fragcoord);
+    out_color.rgb = pow(out_color.rgb, vec3(2.2)); // linear to sRGB
 }

@@ -83,7 +83,7 @@ int main() {
                                                      uint32_t serial,
                                                      uint32_t x, uint32_t y) {
       std::cout << "configuring monitor with serial " << serial << "..."
-                << std::endl;
+                << "\n";
       r->sendAckConfigure(serial);
 
       monitor.initialized = true;
@@ -95,7 +95,7 @@ int main() {
   // this is necessary to trigger layer_surface configure before we attach to
   // the surface via vulkan
   if (wl_display_dispatch(wl) == -1) {
-    std::cout << "Initial wl_display_dispatch failed!" << std::endl;
+    std::cout << "Initial wl_display_dispatch failed!" << "\n";
   }
 
   for (auto &monitor : sMonitors) {
@@ -135,7 +135,7 @@ int main() {
     std::cout << "rendered vkpaper frame in " << duration_us / 1000.0f
               << "ms, sleeping for " << sleep_time_us / 1000.0f
               << "ms, elapsed time: " << timeSinceStartFloat << "s"
-              << std::endl;
+              << "\n";
 
     std::this_thread::sleep_for(sleep_duration);
   }
