@@ -48,15 +48,15 @@ static void addInterface(void *data, struct wl_registry *registry,
   }
 }
 
-static void globalRemove(void *data, struct wl_registry *wl_registry,
-                         uint32_t name) {}
+static void removeInterface(void *data, struct wl_registry *wl_registry,
+                            uint32_t name) {}
 
 int main() {
-  struct wl_display *wl = wl_display_connect(NULL);
-  struct wl_registry *registry = wl_display_get_registry(wl);
+  auto wl = wl_display_connect(nullptr);
+  auto registry = wl_display_get_registry(wl);
   struct wl_registry_listener regListener = {.global = addInterface,
-                                             .global_remove = globalRemove};
-  wl_registry_add_listener(registry, &regListener, NULL);
+                                             .global_remove = removeInterface};
+  wl_registry_add_listener(registry, &regListener, nullptr);
 
   wl_display_dispatch(wl);
   if (wl_display_roundtrip(wl) == -1) {
@@ -125,18 +125,18 @@ int main() {
     }
     const auto renderEnd = std::chrono::system_clock::now();
     const auto duration = renderEnd - renderStart;
-    const auto sleep_duration = std::chrono::milliseconds{16} -
-                                duration; // todo: ensure this is positive
-    const auto duration_us =
+    const auto sleepDuration = std::chrono::milliseconds{16} -
+                               duration; // todo: ensure this is positive
+    const auto durationUs =
         std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-    const auto sleep_time_us =
-        std::chrono::duration_cast<std::chrono::microseconds>(sleep_duration)
+    const auto sleepTimeUs =
+        std::chrono::duration_cast<std::chrono::microseconds>(sleepDuration)
             .count();
-    std::cout << "rendered vkpaper frame in " << duration_us / 1000.0f
-              << "ms, sleeping for " << sleep_time_us / 1000.0f
+    std::cout << "rendered vkpaper frame in " << durationUs / 1000.0f
+              << "ms, sleeping for " << sleepTimeUs / 1000.0f
               << "ms, elapsed time: " << timeSinceStartFloat << "s"
               << "\n";
 
-    std::this_thread::sleep_for(sleep_duration);
+    std::this_thread::sleep_for(sleepDuration);
   }
 }
