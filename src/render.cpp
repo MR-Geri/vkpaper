@@ -1,6 +1,6 @@
 #include <render.hpp>
 
-#include <utils.h>
+#include <utils.hpp>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
