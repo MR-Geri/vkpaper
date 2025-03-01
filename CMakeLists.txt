@@ -14,14 +14,20 @@ pkg_check_modules(
     IMPORTED_TARGET
     wayland-client
     wayland-protocols
+    shaderc
 )
 
-add_executable(vkpaper main.cpp render.cpp
+add_executable(vkpaper main.cpp render.cpp shadercompile.cpp utils.cpp
     protocols/wayland.cpp
     protocols/wlr-layer-shell-unstable-v1.cpp
     protocols/xdg-shell.cpp
 )
 target_link_libraries(vkpaper PkgConfig::deps vulkan)
+
+set_target_properties(vkpaper PROPERTIES
+    CXX_STANDARD 17
+    CXX_EXTENSIONS OFF
+)
 
 add_custom_target(shaders ALL
     COMMAND glslc -O shaders/default.frag -o shaders/default.frag.spv

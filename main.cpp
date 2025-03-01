@@ -1,8 +1,13 @@
+#include "default-shaders.hpp"
 #include "render.hpp"
+#include "shadercompile.h"
 
 #include "protocols/wayland.hpp"
 #include "protocols/wlr-layer-shell-unstable-v1.hpp"
 
+#include "thirdparty/args.hxx"
+
+#include <filesystem>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 
@@ -51,7 +56,60 @@ static void addInterface(void *data, struct wl_registry *registry,
 static void removeInterface(void *data, struct wl_registry *wl_registry,
                             uint32_t name) {}
 
-int main() {
+int main(int argc, char **argv) {
+  args::ArgumentParser parser("vkpaper");
+  args::Positional<std::filesystem::path> shaderFile{
+      parser, "shader file",
+      "The fragment shader (in ShaderToy compatible format) to use as your "
+      "wallpaper."};
+  args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
+  args::CompletionFlag completion(parser, {"complete"});
+  try {
+    parser.ParseCLI(argc, argv);
+  } catch (const args::Completion &e) {
+    std::cout << e.what();
+    return 0;
+  } catch (const args::Help &) {
+    std::cout << parser;
+    return 0;
+  } catch (const args::ParseError &e) {
+    std::cerr << e.what() << std::endl;
+    std::cerr << parser;
+    return 1;
+  }
+
+  if (!shaderFile) {
+    std::cerr << "No shader file given. Aborting...\n";
+    exit(1);
+  }
+  if (!std::filesystem::exists(*shaderFile)) {
+    std::cerr << "Shader file at " << shaderFile->string()
+              << " not found. Aborting...\n";
+    exit(1);
+  }
+
+  const auto outputDir = std::filesystem::path{"/tmp"} / "vkshader";
+  if (!std::filesystem::exists(outputDir)) {
+    std::filesystem::create_directory(outputDir);
+  }
+
+  if (!compileShaderToSpirV("default-vertex-shader", defaultVertexShader,
+                            outputDir / "default.vert.spv", false)) {
+    std::cerr << "Could not compile default vertex shader.\n";
+    exit(1);
+  }
+  if (!compileShaderToSpirV("default-fragment-shader", defaultFragmentShader,
+                            outputDir / "default.frag.spv", true)) {
+    std::cerr << "Could not compile default fragment shader.\n";
+    exit(1);
+  }
+
+  const auto spirvOutput = outputDir / "user.frag.spv";
+  if (!compileShaderToySnippetToSpirVFragment(*shaderFile, spirvOutput)) {
+    std::cerr << "Could not compile shader for " << shaderFile->string()
+              << "\n";
+  }
+
   auto wl = wl_display_connect(nullptr);
   auto registry = wl_display_get_registry(wl);
   struct wl_registry_listener regListener = {.global = addInterface,
@@ -95,7 +153,7 @@ int main() {
   // this is necessary to trigger layer_surface configure before we attach to
   // the surface via vulkan
   if (wl_display_dispatch(wl) == -1) {
-    std::cout << "Initial wl_display_dispatch failed!" << "\n";
+    std::cerr << "Initial wl_display_dispatch failed!" << "\n";
   }
 
   for (auto &monitor : sMonitors) {
@@ -106,7 +164,7 @@ int main() {
   const auto programStartTime = std::chrono::system_clock::now();
   int frameNumber = 0;
 
-  for (;;) {
+  do {
     const auto timeSinceStart =
         std::chrono::system_clock::now() - programStartTime;
     const auto timeSinceStartFloat =
@@ -132,11 +190,11 @@ int main() {
     const auto sleepTimeUs =
         std::chrono::duration_cast<std::chrono::microseconds>(sleepDuration)
             .count();
-    std::cout << "rendered vkpaper frame in " << durationUs / 1000.0f
-              << "ms, sleeping for " << sleepTimeUs / 1000.0f
-              << "ms, elapsed time: " << timeSinceStartFloat << "s"
-              << "\n";
+    // std::cout << "rendered vkpaper frame in " << durationUs / 1000.0f
+    //           << "ms, sleeping for " << sleepTimeUs / 1000.0f
+    //           << "ms, elapsed time: " << timeSinceStartFloat << "s"
+    //           << "\n";
 
     std::this_thread::sleep_for(sleepDuration);
-  }
+  } while (wl_display_dispatch(wl) != -1);
 }

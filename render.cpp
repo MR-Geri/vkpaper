@@ -1,20 +1,17 @@
 #include "render.hpp"
 
+#include "utils.h"
+
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_wayland.h>
-
-#include <wayland-client-protocol.h>
-#include <wayland-client.h>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <iostream>
 #include <limits>
-#include <optional>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -159,24 +156,6 @@ bool checkValidationLayerSupport() {
   }
 
   return true;
-}
-
-static std::vector<char> readFile(const std::string &filename) {
-  std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-  if (!file.is_open()) {
-    throw std::runtime_error("failed to open file!");
-  }
-
-  size_t fileSize = (size_t)file.tellg();
-  std::vector<char> buffer(fileSize);
-
-  file.seekg(0);
-  file.read(buffer.data(), fileSize);
-
-  file.close();
-
-  return buffer;
 }
 
 struct Vertex {
@@ -571,11 +550,23 @@ void VkPaperRenderer::createRenderPass() {
 }
 
 void VkPaperRenderer::createGraphicsPipeline() {
-  auto vertShaderCode = readFile("shaders/default.vert.spv");
-  auto fragShaderCode = readFile("shaders/default.frag.spv");
+  auto vertShaderCode = readBinaryFile("/tmp/vkshader/default.vert.spv");
+  auto fragShaderCode = readBinaryFile("/tmp/vkshader/user.frag.spv");
 
-  VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-  VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+  if (!fragShaderCode.has_value()) {
+    std::cerr << "Could not load shadertoy compatible input file. Falling back "
+                 "to default shader...\n";
+    fragShaderCode = readBinaryFile("/tmp/vkshader/default.frag.spv");
+  }
+
+  if (!vertShaderCode.has_value() || !fragShaderCode.has_value()) {
+    std::cerr
+        << "Could not load default vertex or fragment shaders! Aborting...\n";
+    exit(1);
+  }
+
+  VkShaderModule vertShaderModule = createShaderModule(*vertShaderCode);
+  VkShaderModule fragShaderModule = createShaderModule(*fragShaderCode);
 
   VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
   vertShaderStageInfo.sType =
