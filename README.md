@@ -23,5 +23,6 @@ A WIP Vulkan based wallpaper engine for wayland compositors which implement `wlr
 
 ## Shoutout to
 
+- https://github.com/Taywee/args for providing an awesome header-only option parsing library
 - https://github.com/Overv/VulkanTutorial for providing a starting point for the vulkan implementation
 - https://github.com/hyprwm/hyprpaper for showing how to integrate `wlr_layer_shell`

@@ -26,8 +26,13 @@ bool compileShaderToSpirV(std::string shaderName, std::string shaderSource,
 
   if (result.GetCompilationStatus() !=
       shaderc_compilation_status::shaderc_compilation_status_success) {
-    std::cout << "Shader compilation failed with error: \n"
-              << result.GetErrorMessage() << "\n";
+
+    const auto sourceWithLineNumbers = addLineNumbers(shaderSource);
+    std::cout << "Shader compilation failed for " << shaderName << "\n"
+              << "Shader source:\n"
+              << sourceWithLineNumbers << "\n"
+              << "Error message:\n"
+              << result.GetErrorMessage();
     return false;
   }
 

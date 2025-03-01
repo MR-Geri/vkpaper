@@ -22,7 +22,7 @@ add_executable(vkpaper src/main.cpp src/render.cpp src/shadercompile.cpp src/uti
     thirdparty/protocols/wlr-layer-shell-unstable-v1.cpp
     thirdparty/protocols/xdg-shell.cpp
 )
-target_link_libraries(vkpaper PkgConfig::deps vulkan)
+target_link_libraries(vkpaper PRIVATE PkgConfig::deps vulkan)
 target_include_directories(vkpaper PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/thirdparty)
 
 set_target_properties(vkpaper PROPERTIES
