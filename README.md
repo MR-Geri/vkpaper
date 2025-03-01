@@ -2,6 +2,21 @@
 
 A WIP Vulkan based wallpaper engine for wayland compositors which implement `wlr_layer_shell`.
 
+## TODO
+
+- correctly determine all monitor resolutions
+- correctly react to change of resolutions and hotswapping
+- read configuration from `$HOME/.config/vkpaper` (as alternative to setting the shader directly via command line)
+- let the user specify an alternative configuration via command line
+
+future features:
+- auto reload via filesystem watchers
+- support reading input textures similarly to ShaderToy (very useful for noise texture inputs)
+- allow setting an FPS limit
+- allow textures as an input in addition to shaders (making vkpaper also useful as a regular wallpaper daemon)
+  - note: in texture mode we can stop rendering to limit GPU usage
+- support animations between multiple configurations (for both shaders and texture modes)
+
 ## Collection of amazing Shadertoy wallpapers
 
 - https://www.shadertoy.com/view/lsl3RH

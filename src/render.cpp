@@ -3,6 +3,7 @@
 #include <utils.h>
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_wayland.h>
 
 #include <algorithm>
@@ -223,19 +224,19 @@ void VkPaperRenderer::cleanupSwapChain() {
 }
 
 void VkPaperRenderer::cleanup() {
+  // ensure that no command buffers are in flight before cleaning up here
+  vkDeviceWaitIdle(device);
+
   cleanupSwapChain();
 
   vkDestroyPipeline(device, graphicsPipeline, nullptr);
   vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
   vkDestroyRenderPass(device, renderPass, nullptr);
-  vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyBuffer(device, uniformBuffers[i], nullptr);
     vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
   }
-
-  vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
   vkDestroyDescriptorPool(device, descriptorPool, nullptr);
   vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
