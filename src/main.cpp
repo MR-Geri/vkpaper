@@ -82,7 +82,7 @@ static void removeInterface(CCWlRegistry *registry, uint32_t name) {
   }
 }
 
-void checkAndCreateLayersurfaces(wl_display *wl_display) {
+void checkAndCreateLayerSurfaces(wl_display *wl_display) {
   bool created = false;
 
   for (auto &monitor : sMonitors) {
@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
 
     const auto renderStart = std::chrono::system_clock::now();
     for (const auto &monitor : sMonitors) {
-      checkAndCreateLayersurfaces(wl_display);
+      checkAndCreateLayerSurfaces(wl_display);
 
       if (!monitor->initialized) {
         continue;

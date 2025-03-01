@@ -20,6 +20,7 @@
 namespace {
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
+const int MAX_SAMPLER = 4;
 
 const std::vector<const char *> validationLayers = {
     "VK_LAYER_KHRONOS_validation"};
@@ -30,11 +31,13 @@ const std::vector<const char *> deviceExtensions = {
 const std::vector<const char *> instanceExtensions = {
     "VK_EXT_debug_utils", "VK_KHR_surface", "VK_KHR_wayland_surface"};
 
-#ifdef NDEBUG
+// #ifdef NDEBUG
+// const bool enableValidationLayers = false;
+// #else
+// const bool enableValidationLayers = true;
+// #endif
+
 const bool enableValidationLayers = false;
-#else
-const bool enableValidationLayers = true;
-#endif
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -808,15 +811,17 @@ void VkPaperRenderer::createUniformBuffers() {
 }
 
 void VkPaperRenderer::createDescriptorPool() {
-  VkDescriptorPoolSize poolSize{};
-  poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  std::array<VkDescriptorPoolSize, 2> poolSizes{};
+  poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  poolSizes[1].descriptorCount =
+      static_cast<uint32_t>(MAX_SAMPLER * MAX_FRAMES_IN_FLIGHT);
 
   VkDescriptorPoolCreateInfo poolInfo{};
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  poolInfo.poolSizeCount = 1;
-  poolInfo.pPoolSizes = &poolSize;
-
+  poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+  poolInfo.pPoolSizes = poolSizes.data();
   poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
   if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) !=
@@ -840,26 +845,54 @@ void VkPaperRenderer::createDescriptorSets() {
     throw std::runtime_error("failed to allocate descriptor sets!");
   }
 
+  // todo move to member and clean up
+  VkSamplerCreateInfo samplerInfo{};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter = VK_FILTER_LINEAR;
+  samplerInfo.minFilter = VK_FILTER_LINEAR;
+  VkSampler textureSampler;
+  if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("failed to create texture sampler!");
+  }
+
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     VkDescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = uniformBuffers[i];
     bufferInfo.offset = 0;
     bufferInfo.range = sizeof(UniformBuffer);
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = descriptorSets[i];
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.sampler = textureSampler;
+    imageInfo.imageView = VK_NULL_HANDLE;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrite.descriptorCount = 1;
+    VkWriteDescriptorSet bufferWrite{};
+    bufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    bufferWrite.dstSet = descriptorSets[i];
+    bufferWrite.dstBinding = 0;
+    bufferWrite.dstArrayElement = 0;
+    bufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bufferWrite.descriptorCount = 1;
+    bufferWrite.pBufferInfo = &bufferInfo;
 
-    descriptorWrite.pBufferInfo = &bufferInfo;
-    descriptorWrite.pImageInfo = nullptr;       // Optional
-    descriptorWrite.pTexelBufferView = nullptr; // Optional
+    std::vector<VkWriteDescriptorSet> descriptorWrites{bufferWrite};
 
-    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+    for (int j = 0; j < MAX_SAMPLER; ++j) {
+      VkWriteDescriptorSet imageWrite{};
+      imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      imageWrite.dstSet = descriptorSets[i];
+      imageWrite.dstBinding = 1 + i;
+      imageWrite.dstArrayElement = 0;
+      imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+      imageWrite.descriptorCount = 1;
+      imageWrite.pImageInfo = &imageInfo;
+
+      descriptorWrites.push_back(imageWrite);
+    }
+
+    vkUpdateDescriptorSets(device, descriptorWrites.size(),
+                           descriptorWrites.data(), 0, nullptr);
   }
 }
 
@@ -870,10 +903,24 @@ void VkPaperRenderer::createDescriptorSetLayout() {
   uboLayoutBinding.descriptorCount = 1;
   uboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+  std::vector<VkDescriptorSetLayoutBinding> bindings = {uboLayoutBinding};
+
+  // create layouts for iChannel0 - iChannel3
+  for (int i = 0; i < MAX_SAMPLER; ++i) {
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 1 + i;
+    samplerLayoutBinding.descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    bindings.push_back(samplerLayoutBinding);
+  }
+
   VkDescriptorSetLayoutCreateInfo layoutInfo{};
   layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  layoutInfo.bindingCount = 1;
-  layoutInfo.pBindings = &uboLayoutBinding;
+  layoutInfo.bindingCount = bindings.size();
+  layoutInfo.pBindings = bindings.data();
 
   if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr,
                                   &descriptorSetLayout) != VK_SUCCESS) {

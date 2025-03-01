@@ -34,6 +34,11 @@ layout(std140, binding = 0) uniform UniformBufferObject {
     vec3 iChannelResolution[4];
     float iChannelTime[4];
 };
+
+layout(binding = 1) uniform sampler2D iChannel0;
+layout(binding = 2) uniform sampler2D iChannel1;
+layout(binding = 3) uniform sampler2D iChannel2;
+layout(binding = 4) uniform sampler2D iChannel3;
 )glsl"};
 
 const auto fragmentPost = std::string{R"glsl(

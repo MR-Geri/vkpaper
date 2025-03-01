@@ -4,8 +4,7 @@ A WIP Vulkan based wallpaper engine for wayland compositors which implement `wlr
 
 ## TODO
 
-- correctly determine all monitor resolutions
-- correctly react to change of resolutions and hotswapping
+- correctly react to hotswapping, currently wl_display_dispatch blocks if a display is added and rendering from two renderers
 - read configuration from `$HOME/.config/vkpaper` (as alternative to setting the shader directly via command line)
 - let the user specify an alternative configuration via command line
 
