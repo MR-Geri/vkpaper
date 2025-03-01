@@ -17,20 +17,15 @@ pkg_check_modules(
     shaderc
 )
 
-add_executable(vkpaper main.cpp render.cpp shadercompile.cpp utils.cpp
-    protocols/wayland.cpp
-    protocols/wlr-layer-shell-unstable-v1.cpp
-    protocols/xdg-shell.cpp
+add_executable(vkpaper src/main.cpp src/render.cpp src/shadercompile.cpp src/utils.cpp
+    thirdparty/protocols/wayland.cpp
+    thirdparty/protocols/wlr-layer-shell-unstable-v1.cpp
+    thirdparty/protocols/xdg-shell.cpp
 )
 target_link_libraries(vkpaper PkgConfig::deps vulkan)
+target_include_directories(vkpaper PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/thirdparty)
 
 set_target_properties(vkpaper PROPERTIES
     CXX_STANDARD 17
     CXX_EXTENSIONS OFF
-)
-
-add_custom_target(shaders ALL
-    COMMAND glslc -O shaders/default.frag -o shaders/default.frag.spv
-    COMMAND glslc -O shaders/default.vert -o shaders/default.vert.spv
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )

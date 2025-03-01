@@ -1,7 +1,7 @@
-#include "shadercompile.h"
+#include <shadercompile.h>
 
-#include "default-shaders.hpp"
-#include "utils.h"
+#include <default-shaders.hpp>
+#include <utils.h>
 
 #include <shaderc/shaderc.h>
 #include <shaderc/shaderc.hpp>
@@ -12,6 +12,8 @@
 
 bool compileShaderToSpirV(std::string shaderName, std::string shaderSource,
                           std::filesystem::path dstPath, bool isFragment) {
+  std::cout << "Compiling shader " << shaderName << "...\n";
+
   auto compiler = shaderc::Compiler{};
   auto compileOptions = shaderc::CompileOptions{};
   compileOptions.SetOptimizationLevel(

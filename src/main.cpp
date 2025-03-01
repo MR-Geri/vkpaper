@@ -1,19 +1,18 @@
-#include "default-shaders.hpp"
-#include "render.hpp"
-#include "shadercompile.h"
+#include <default-shaders.hpp>
+#include <render.hpp>
+#include <shadercompile.h>
 
-#include "protocols/wayland.hpp"
-#include "protocols/wlr-layer-shell-unstable-v1.hpp"
-
-#include "thirdparty/args.hxx"
-
-#include <filesystem>
+#include <protocols/wayland.hpp>
+#include <protocols/wlr-layer-shell-unstable-v1.hpp>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
+
+#include <args.hxx>
 
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <thread>
