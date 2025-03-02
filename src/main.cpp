@@ -122,19 +122,19 @@ int main(int argc, char **argv) {
       "wallpaper."};
   args::ValueFlag<std::string> iChannel0{parser,
                                          "iChannel0",
-                                         "Input texture to use as iChannel0",
+                                         "Input image to use as iChannel0",
                                          {'0', "iChannel0"}};
   args::ValueFlag<std::string> iChannel1{parser,
                                          "iChannel1",
-                                         "Input texture to use as iChannel1",
+                                         "Input image to use as iChannel1",
                                          {'1', "iChannel1"}};
   args::ValueFlag<std::string> iChannel2{parser,
                                          "iChannel2",
-                                         "Input texture to use as iChannel2",
+                                         "Input image to use as iChannel2",
                                          {'2', "iChannel2"}};
   args::ValueFlag<std::string> iChannel3{parser,
                                          "iChannel3",
-                                         "Input texture to use as iChannel3",
+                                         "Input image to use as iChannel3",
                                          {'3', "iChannel3"}};
   args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
   args::CompletionFlag completion(parser, {"complete"});
@@ -198,6 +198,8 @@ int main(int argc, char **argv) {
   int frameNumber = 0;
 
   do {
+    checkAndCreateLayerSurfaces(wlDisplay);
+
     const auto timeSinceStart =
         std::chrono::system_clock::now() - programStartTime;
     const auto timeSinceStartFloat =
@@ -207,16 +209,11 @@ int main(int argc, char **argv) {
 
     const auto renderStart = std::chrono::system_clock::now();
     for (const auto &monitor : sMonitors) {
-      checkAndCreateLayerSurfaces(wlDisplay);
-
       if (!monitor->initialized) {
         continue;
       }
 
       if (monitor->renderer == nullptr) {
-        // std::cout << "Generating vulkan renderer for monitor " <<
-        // monitor->name
-        //           << "...\n";
         monitor->renderer = std::make_unique<VkPaperRenderer>(
             wlDisplay, (wl_surface *)monitor->wlSurface->resource());
 

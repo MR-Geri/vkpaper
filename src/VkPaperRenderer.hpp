@@ -90,8 +90,6 @@ private:
   void createDescriptorPool();
   void createDescriptorSets();
   void createDescriptorSetLayout();
-  uint32_t findMemoryType(uint32_t typeFilter,
-                          VkMemoryPropertyFlags properties);
   void createCommandBuffers();
   void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
   void createSyncObjects();
