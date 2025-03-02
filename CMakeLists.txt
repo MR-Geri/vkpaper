@@ -17,11 +17,11 @@ pkg_check_modules(
 )
 
 add_executable(vkpaper src/main.cpp
-    src/render.cpp
+    src/VkPaperRenderer.cpp
     src/VulkanImage.cpp
     src/VulkanUtils.cpp
-    src/shadercompile.cpp
-    src/utils.cpp
+    src/ShaderCompile.cpp
+    src/FileUtils.cpp
     thirdparty/protocols/wayland.cpp
     thirdparty/protocols/wlr-layer-shell-unstable-v1.cpp
     thirdparty/protocols/xdg-shell.cpp

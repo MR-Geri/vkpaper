@@ -1,6 +1,6 @@
-#include <default-shaders.hpp>
-#include <render.hpp>
-#include <shadercompile.h>
+#include <DefaultShaders.hpp>
+#include <ShaderCompile.hpp>
+#include <VkPaperRenderer.hpp>
 
 #include <protocols/wayland.hpp>
 #include <protocols/wlr-layer-shell-unstable-v1.hpp>

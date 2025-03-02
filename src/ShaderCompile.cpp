@@ -1,7 +1,7 @@
-#include <shadercompile.h>
+#include <ShaderCompile.hpp>
 
-#include <default-shaders.hpp>
-#include <utils.hpp>
+#include <DefaultShaders.hpp>
+#include <FileUtils.hpp>
 
 #include <shaderc/shaderc.h>
 #include <shaderc/shaderc.hpp>
