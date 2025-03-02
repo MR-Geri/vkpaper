@@ -20,7 +20,6 @@
 namespace {
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
-const int MAX_SAMPLER = 4;
 
 const std::vector<const char *> validationLayers = {
     "VK_LAYER_KHRONOS_validation"};
@@ -212,10 +211,19 @@ void VkPaperRenderer::initVulkan() {
   createSyncObjects();
 
   for (int i = 0; i < MAX_SAMPLER; ++i) {
-    images.emplace_back(
-        std::make_unique<VulkanImage>(device, physicalDevice, graphicsQueue));
+    images[i] =
+        std::make_unique<VulkanImage>(device, physicalDevice, graphicsQueue);
     images[i]->createDefault(commandPool);
   }
+}
+
+void VkPaperRenderer::loadImageForSampler(uint32_t samplerId,
+                                          std::filesystem::path path) {
+  if (samplerId >= MAX_SAMPLER) {
+    return;
+  }
+
+  images[samplerId]->createFromFile(path, commandPool);
 }
 
 void VkPaperRenderer::cleanupSwapChain() {

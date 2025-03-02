@@ -56,8 +56,6 @@ static void addInterface(CCWlRegistry *registry, uint32_t name,
         (wl_proxy *)wl_registry_bind((wl_registry *)registry->resource(), name,
                                      &wl_compositor_interface, 4));
   } else if (strcmp(interface, wl_output_interface.name) == 0) {
-    std::cout << "Registered new output with id " << name << "\n";
-
     auto output = std::make_unique<CCWlOutput>((wl_proxy *)wl_registry_bind(
         (wl_registry *)registry->resource(), name, &wl_output_interface, 4));
     auto monitor = std::make_unique<Monitor>(
@@ -83,13 +81,8 @@ static void removeInterface(CCWlRegistry *registry, uint32_t name) {
 }
 
 void checkAndCreateLayerSurfaces(wl_display *wl_display) {
-  bool created = false;
-
   for (auto &monitor : sMonitors) {
     if (monitor->wlSurface == nullptr) {
-      created = true;
-      std::cout << "Generating wayland surface for " << monitor->name << "\n";
-
       monitor->wlSurface =
           std::make_unique<CCWlSurface>(sCompositor->sendCreateSurface());
       monitor->wlrLayerSurface = std::make_unique<CCZwlrLayerSurfaceV1>(
@@ -108,8 +101,8 @@ void checkAndCreateLayerSurfaces(wl_display *wl_display) {
       monitor->wlrLayerSurface->setConfigure(
           [&monitor](CCZwlrLayerSurfaceV1 *r, uint32_t serial, uint32_t x,
                      uint32_t y) {
-            std::cout << "Configuring layer surface for monitor "
-                      << monitor->name << "...\n";
+            // std::cout << "Configuring layer surface for monitor "
+            //           << monitor->name << "...\n";
             r->sendAckConfigure(serial);
 
             monitor->initialized = true;
@@ -125,8 +118,24 @@ int main(int argc, char **argv) {
   args::ArgumentParser parser("vkpaper");
   args::Positional<std::filesystem::path> shaderFile{
       parser, "shader file",
-      "The fragment shader (in ShaderToy compatible format) to use as your "
+      "The fragment shader (in Shadertoy compatible format) to use as your "
       "wallpaper."};
+  args::ValueFlag<std::string> iChannel0{parser,
+                                         "iChannel0",
+                                         "Input texture to use as iChannel0",
+                                         {'0', "iChannel0"}};
+  args::ValueFlag<std::string> iChannel1{parser,
+                                         "iChannel1",
+                                         "Input texture to use as iChannel1",
+                                         {'1', "iChannel1"}};
+  args::ValueFlag<std::string> iChannel2{parser,
+                                         "iChannel2",
+                                         "Input texture to use as iChannel2",
+                                         {'2', "iChannel2"}};
+  args::ValueFlag<std::string> iChannel3{parser,
+                                         "iChannel3",
+                                         "Input texture to use as iChannel3",
+                                         {'3', "iChannel3"}};
   args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
   args::CompletionFlag completion(parser, {"complete"});
   try {
@@ -175,13 +184,13 @@ int main(int argc, char **argv) {
               << "\n";
   }
 
-  auto wl_display = wl_display_connect(nullptr);
+  auto wlDisplay = wl_display_connect(nullptr);
   auto registry = std::make_unique<CCWlRegistry>(
-      (wl_proxy *)wl_display_get_registry(wl_display));
+      (wl_proxy *)wl_display_get_registry(wlDisplay));
   registry->setGlobal(addInterface);
   registry->setGlobalRemove(removeInterface);
 
-  if (wl_display_roundtrip(wl_display) == -1) {
+  if (wl_display_roundtrip(wlDisplay) == -1) {
     return EXIT_FAILURE;
   }
 
@@ -198,17 +207,31 @@ int main(int argc, char **argv) {
 
     const auto renderStart = std::chrono::system_clock::now();
     for (const auto &monitor : sMonitors) {
-      checkAndCreateLayerSurfaces(wl_display);
+      checkAndCreateLayerSurfaces(wlDisplay);
 
       if (!monitor->initialized) {
         continue;
       }
 
       if (monitor->renderer == nullptr) {
-        std::cout << "Generating vulkan renderer for monitor " << monitor->name
-                  << "...\n";
+        // std::cout << "Generating vulkan renderer for monitor " <<
+        // monitor->name
+        //           << "...\n";
         monitor->renderer = std::make_unique<VkPaperRenderer>(
-            wl_display, (wl_surface *)monitor->wlSurface->resource());
+            wlDisplay, (wl_surface *)monitor->wlSurface->resource());
+
+        if (iChannel0) {
+          monitor->renderer->loadImageForSampler(0, *iChannel0);
+        }
+        if (iChannel1) {
+          monitor->renderer->loadImageForSampler(1, *iChannel1);
+        }
+        if (iChannel2) {
+          monitor->renderer->loadImageForSampler(2, *iChannel2);
+        }
+        if (iChannel3) {
+          monitor->renderer->loadImageForSampler(3, *iChannel3);
+        }
       }
 
       const auto currentUniforms = UniformBuffer{
@@ -239,5 +262,5 @@ int main(int argc, char **argv) {
     //           << "\n";
 
     std::this_thread::sleep_for(sleepDuration);
-  } while (wl_display_dispatch(wl_display) != -1);
+  } while (wl_display_dispatch(wlDisplay) != -1);
 }

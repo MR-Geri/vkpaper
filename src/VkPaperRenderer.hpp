@@ -6,8 +6,11 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_wayland.h>
 
+#include <array>
 #include <optional>
 #include <vector>
+
+const int MAX_SAMPLER = 4;
 
 struct Vec3 {
   float x;
@@ -62,6 +65,7 @@ public:
 
   void drawFrame();
   void updateUniformBuffer(UniformBuffer uniformBuffer);
+  void loadImageForSampler(uint32_t samplerId, std::filesystem::path path);
 
 private:
   void initVulkan();
@@ -139,7 +143,7 @@ private:
   VkCommandPool commandPool;
   std::vector<VkCommandBuffer> commandBuffers;
 
-  std::vector<std::unique_ptr<VulkanImage>> images;
+  std::array<std::unique_ptr<VulkanImage>, MAX_SAMPLER> images;
 
   // synchronization
   std::vector<VkSemaphore> imageAvailableSemaphores;
