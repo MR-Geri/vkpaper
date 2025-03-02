@@ -1,5 +1,8 @@
 #pragma once
 
+#include <VulkanImage.hpp>
+
+#include <memory>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_wayland.h>
 
@@ -135,6 +138,8 @@ private:
   // command buffers
   VkCommandPool commandPool;
   std::vector<VkCommandBuffer> commandBuffers;
+
+  std::vector<std::unique_ptr<VulkanImage>> images;
 
   // synchronization
   std::vector<VkSemaphore> imageAvailableSemaphores;

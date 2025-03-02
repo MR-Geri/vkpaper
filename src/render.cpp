@@ -1,3 +1,4 @@
+#include <memory>
 #include <render.hpp>
 
 #include <utils.hpp>
@@ -31,13 +32,11 @@ const std::vector<const char *> deviceExtensions = {
 const std::vector<const char *> instanceExtensions = {
     "VK_EXT_debug_utils", "VK_KHR_surface", "VK_KHR_wayland_surface"};
 
-// #ifdef NDEBUG
-// const bool enableValidationLayers = false;
-// #else
-// const bool enableValidationLayers = true;
-// #endif
-
+#ifdef NDEBUG
 const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -212,6 +211,12 @@ void VkPaperRenderer::initVulkan() {
   createDescriptorSets();
   createCommandBuffers();
   createSyncObjects();
+
+  for (int i = 0; i < MAX_SAMPLER; ++i) {
+    images.emplace_back(
+        std::make_unique<VulkanImage>(device, physicalDevice, graphicsQueue));
+    images[i]->createDefault(commandPool);
+  }
 }
 
 void VkPaperRenderer::cleanupSwapChain() {
@@ -862,11 +867,6 @@ void VkPaperRenderer::createDescriptorSets() {
     bufferInfo.offset = 0;
     bufferInfo.range = sizeof(UniformBuffer);
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.sampler = textureSampler;
-    imageInfo.imageView = VK_NULL_HANDLE;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
     VkWriteDescriptorSet bufferWrite{};
     bufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     bufferWrite.dstSet = descriptorSets[i];
@@ -877,19 +877,6 @@ void VkPaperRenderer::createDescriptorSets() {
     bufferWrite.pBufferInfo = &bufferInfo;
 
     std::vector<VkWriteDescriptorSet> descriptorWrites{bufferWrite};
-
-    for (int j = 0; j < MAX_SAMPLER; ++j) {
-      VkWriteDescriptorSet imageWrite{};
-      imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      imageWrite.dstSet = descriptorSets[i];
-      imageWrite.dstBinding = 1 + i;
-      imageWrite.dstArrayElement = 0;
-      imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      imageWrite.descriptorCount = 1;
-      imageWrite.pImageInfo = &imageInfo;
-
-      descriptorWrites.push_back(imageWrite);
-    }
 
     vkUpdateDescriptorSets(device, descriptorWrites.size(),
                            descriptorWrites.data(), 0, nullptr);
@@ -960,6 +947,7 @@ void VkPaperRenderer::createCommandBuffers() {
 
 void VkPaperRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer,
                                           uint32_t imageIndex) {
+
   VkCommandBufferBeginInfo beginInfo{};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -1054,6 +1042,28 @@ void VkPaperRenderer::drawFrame() {
   } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
     throw std::runtime_error("failed to acquire swap chain image!");
   }
+
+  std::vector<VkDescriptorImageInfo> imageInfos{MAX_SAMPLER};
+  std::vector<VkWriteDescriptorSet> descriptorWrites{};
+
+  for (int i = 0; i < MAX_SAMPLER; ++i) {
+    imageInfos[i].sampler = images[i]->sampler;
+    imageInfos[i].imageView = images[i]->imageView;
+    imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet imageWrite{};
+    imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    imageWrite.dstSet = descriptorSets[currentFrame];
+    imageWrite.dstBinding = 1 + i;
+    imageWrite.dstArrayElement = 0;
+    imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    imageWrite.descriptorCount = 1;
+    imageWrite.pImageInfo = &imageInfos[i];
+
+    descriptorWrites.push_back(imageWrite);
+  }
+  vkUpdateDescriptorSets(device, descriptorWrites.size(),
+                         descriptorWrites.data(), 0, nullptr);
 
   vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
