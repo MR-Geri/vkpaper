@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <iostream>
 
+#include <string>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -26,7 +27,11 @@ int main(int argc, char **argv) {
   args::ValueFlag<std::string> transitionShader(
       arguments, "transition shader",
       "The transition shader file to use for animating the new shader",
-      {'t', "transition-shader"});
+      {'s', "transition-shader"});
+  args::ValueFlag<float> transitionTimeSec(
+      arguments, "transition time in seconds",
+      "Duration of the transition specified by the shader",
+      {'t', "transition-time"});
   args::ValueFlag<std::string> iChannel0{arguments,
                                          "iChannel0",
                                          "Input image to use as iChannel0",
@@ -103,6 +108,8 @@ int main(int argc, char **argv) {
 
     ipcCommand = "transition ";
     ipcCommand += absoluteTransitionShaderPath.string();
+    ipcCommand += " ";
+    ipcCommand += transitionTimeSec ? std::to_string(*transitionTimeSec) : "1";
     ipcCommand += " ";
   }
 

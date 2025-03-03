@@ -71,6 +71,7 @@ public:
   void drawFrame();
   void updateUniformBuffer(UniformBuffer uniformBuffer);
   void loadImageForSampler(uint32_t samplerId, std::filesystem::path path);
+  void loadDefaultImage(uint32_t samplerId);
   void createGraphicsPipeline(const std::vector<char> &fragmentShaderBinary);
 
 private:

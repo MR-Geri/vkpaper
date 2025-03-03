@@ -230,6 +230,14 @@ void VkPaperRenderer::loadImageForSampler(uint32_t samplerId,
   images[samplerId]->createFromFile(path, commandPool);
 }
 
+void VkPaperRenderer::loadDefaultImage(uint32_t samplerId) {
+  if (samplerId >= MAX_SAMPLER) {
+    return;
+  }
+
+  images[samplerId]->createDefault(commandPool);
+}
+
 void VkPaperRenderer::cleanupSwapChain() {
   for (auto framebuffer : swapChainFramebuffers) {
     vkDestroyFramebuffer(device, framebuffer, nullptr);

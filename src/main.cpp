@@ -4,33 +4,45 @@
 #include <Socket.hpp>
 #include <VkPaperRenderer.hpp>
 
-#include <atomic>
-#include <mutex>
 #include <protocols/wayland.hpp>
 #include <protocols/wlr-layer-shell-unstable-v1.hpp>
 
 #include <args.hxx>
 
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
 #include <thread>
 
 struct Monitor {
-  std::unique_ptr<CCWlOutput> output;
-  std::unique_ptr<CCWlSurface> wlSurface;
-  std::unique_ptr<CCZwlrLayerSurfaceV1> wlrLayerSurface;
-  uint32_t wlName;
+  Monitor(std::unique_ptr<CCWlOutput> output_)
+      : output{std::move(output_)}, needsShaderReload{true},
+        initialized{false} {}
 
-  std::unique_ptr<VkPaperRenderer> renderer;
-  std::atomic_bool needsShaderReload;
   std::string name;
   uint32_t width;
   uint32_t height;
   bool initialized;
+
+  std::unique_ptr<CCWlOutput> output{};
+  std::unique_ptr<CCWlSurface> wlSurface{};
+  std::unique_ptr<CCZwlrLayerSurfaceV1> wlrLayerSurface{};
+  uint32_t wlName;
+
+  std::unique_ptr<VkPaperRenderer> renderer{};
+  std::atomic_bool needsShaderReload;
+  std::array<std::filesystem::path, 4> iChannelPaths;
+
+  std::chrono::time_point<std::chrono::system_clock> transitionStartTime;
+  float transitionDurationInSec;
 
   void registerListeners() {
     output->setName([this](CCWlOutput *, const char *name_) {
@@ -70,9 +82,7 @@ static void addInterface(CCWlRegistry *registry, uint32_t name,
   } else if (strcmp(interface, wl_output_interface.name) == 0) {
     auto output = std::make_unique<CCWlOutput>((wl_proxy *)wl_registry_bind(
         (wl_registry *)registry->resource(), name, &wl_output_interface, 4));
-    auto monitor =
-        std::make_unique<Monitor>(std::move(output), nullptr, nullptr, name,
-                                  nullptr, true, "", 0, 0, false);
+    auto monitor = std::make_unique<Monitor>(std::move(output));
     monitor->registerListeners();
 
     std::lock_guard lock{sMonitorMutex};
@@ -126,6 +136,142 @@ void checkAndCreateLayerSurfaces(wl_display *wl_display) {
       monitor->wlSurface->sendCommit();
       wl_display_flush(wl_display);
     }
+  }
+}
+
+const char *socketCallback(std::string request) {
+  // std::cout << "Received request: " << request;
+  auto processTexturesChannels = [](std::array<std::string, 4> channelPaths) {
+    for (auto &monitor : sMonitors) {
+      for (int i = 0; i < channelPaths.size(); ++i) {
+        monitor->iChannelPaths[i] =
+            channelPaths[i] != "x" ? channelPaths[i] : "";
+      }
+    }
+  };
+
+  request.pop_back(); // remove newline character, which is the delimier in a
+                      // socket message
+  const auto arguments = split(request, " ");
+  if (arguments.size() > 0 && arguments[0] == "switch") {
+    if (arguments.size() != 6) {
+      return "Wrong IPC message length";
+    }
+    const auto &shaderFile = arguments[1];
+    std::cout << "Switching to shader " << shaderFile << "\n";
+
+    if (!compileShaderToySnippetToSpirVFragment(shaderFile, spirvUserOutput)) {
+      std::cerr << "Could not compile shader for " << shaderFile << "\n";
+      return "Could not compile shader";
+    }
+    sCurrentShaderFile = shaderFile;
+
+    std::lock_guard lock{sMonitorMutex};
+    processTexturesChannels(
+        {arguments[2], arguments[3], arguments[4], arguments[5]});
+    for (auto &monitor : sMonitors) {
+      monitor->needsShaderReload = true;
+    }
+    return "Ok";
+  }
+
+  if (arguments.size() > 0 && arguments[0] == "transition") {
+    if (arguments.size() != 8) {
+      return "Wrong IPC message length";
+    }
+    const auto &transitionShaderFile = arguments[1];
+    const auto &transitionTime = arguments[2];
+    const auto &targetShaderFile = arguments[3];
+    std::cout << "Transition shader " << transitionShaderFile << " from shader "
+              << sCurrentShaderFile << " to shader " << targetShaderFile
+              << "\n";
+
+    if (!compileTransitionShaderToSpirVFragment(
+            transitionShaderFile, sCurrentShaderFile, targetShaderFile,
+            spirvUserOutput)) {
+      std::cerr << "Could not compile shader for " << transitionShaderFile
+                << "\n";
+      return "Could not compile shader";
+    }
+
+    sCurrentShaderFile = targetShaderFile;
+
+    std::lock_guard lock{sMonitorMutex};
+    processTexturesChannels(
+        {arguments[4], arguments[5], arguments[6], arguments[7]});
+    for (auto &monitor : sMonitors) {
+      try {
+        monitor->transitionDurationInSec = std::stof(transitionTime);
+      } catch (...) {
+        monitor->transitionDurationInSec = 1.0f;
+      }
+      monitor->needsShaderReload = true;
+    }
+
+    return "Ok";
+  }
+  return "Unknown command";
+}
+
+void renderWallpapersForAllMonitors(wl_display *wlDisplay, int frameNumber,
+                                    float appTimeSeconds) {
+  std::lock_guard lock{sMonitorMutex};
+  for (const auto &monitor : sMonitors) {
+    if (!monitor->initialized) {
+      continue;
+    }
+
+    if (monitor->renderer == nullptr) {
+      monitor->renderer = std::make_unique<VkPaperRenderer>(
+          wlDisplay, (wl_surface *)monitor->wlSurface->resource());
+    }
+
+    if (monitor->needsShaderReload) {
+      auto fragShaderCode = readBinaryFile(spirvUserOutput);
+      if (!fragShaderCode.has_value()) {
+        std::cerr << "Could not load user shader!\n";
+        monitor->needsShaderReload = false;
+        continue;
+      }
+      monitor->renderer->createGraphicsPipeline(*fragShaderCode);
+      monitor->needsShaderReload = false;
+
+      for (int i = 0; i < monitor->iChannelPaths.size(); ++i) {
+        if (!monitor->iChannelPaths[i].empty()) {
+          monitor->renderer->loadImageForSampler(i, monitor->iChannelPaths[i]);
+        } else {
+          monitor->renderer->loadDefaultImage(i);
+        }
+      }
+
+      monitor->transitionStartTime = std::chrono::system_clock::now();
+    }
+
+    const auto timeSinceTransition =
+        std::chrono::system_clock::now() - monitor->transitionStartTime;
+    const auto transitionTimeMs = monitor->transitionDurationInSec * 1000.0f;
+    auto transitionFactor =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            timeSinceTransition)
+            .count() /
+        transitionTimeMs;
+    transitionFactor = std::min(transitionFactor, 1.0f);
+    const auto currentUniforms = UniformBuffer{
+        appTimeSeconds,
+        0.0f,
+        60.0f,
+        frameNumber,
+        transitionFactor,
+        0.0f,
+        0.0f,
+        0.0f,
+        Vec4{10, 10, 0, 0},
+        Vec3{static_cast<float>(monitor->width),
+             static_cast<float>(monitor->height), 0},
+    };
+
+    monitor->renderer->updateUniformBuffer(currentUniforms);
+    monitor->renderer->drawFrame();
   }
 }
 
@@ -209,62 +355,20 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  initializeSocket([](std::string request) {
-    // std::cout << "Received request: " << request;
-    const auto arguments = split(request, " ");
-    if (arguments.size() > 0 && arguments[0] == "switch") {
-      if (arguments.size() != 6) {
-        return "Wrong IPC message length";
-      }
-      const auto &shaderFile = arguments[1];
-      std::cout << "Switching to shader " << shaderFile << "\n";
+  initializeSocket(socketCallback);
 
-      if (!compileShaderToySnippetToSpirVFragment(shaderFile,
-                                                  spirvUserOutput)) {
-        std::cerr << "Could not compile shader for " << shaderFile << "\n";
-        return "Could not compile shader";
-      }
-      sCurrentShaderFile = shaderFile;
-
-      std::lock_guard lock{sMonitorMutex};
-      for (auto &monitor : sMonitors) {
-        monitor->needsShaderReload = true;
-      }
-      return "Ok";
-    }
-
-    if (arguments.size() > 0 && arguments[0] == "transition") {
-      if (arguments.size() != 7) {
-        return "Wrong IPC message length";
-      }
-      const auto &transitionShaderFile = arguments[1];
-      const auto &targetShaderFile = arguments[2];
-      std::cout << "Transition shader " << transitionShaderFile
-                << " from shader " << sCurrentShaderFile << " to shader "
-                << targetShaderFile << "\n";
-
-      if (!compileTransitionShaderToSpirVFragment(
-              transitionShaderFile, sCurrentShaderFile, targetShaderFile,
-              spirvUserOutput)) {
-        std::cerr << "Could not compile shader for " << transitionShaderFile
-                  << "\n";
-        return "Could not compile shader";
-      }
-
-      sCurrentShaderFile = targetShaderFile;
-
-      std::lock_guard lock{sMonitorMutex};
-      for (auto &monitor : sMonitors) {
-        monitor->needsShaderReload = true;
-      }
-
-      return "Ok";
-    }
-    return "Unknown command";
-  });
+  for (auto &monitor : sMonitors) {
+    monitor->iChannelPaths[0] =
+        iChannel0 ? std::filesystem::path{*iChannel0} : std::filesystem::path{};
+    monitor->iChannelPaths[1] =
+        iChannel1 ? std::filesystem::path{*iChannel1} : std::filesystem::path{};
+    monitor->iChannelPaths[2] =
+        iChannel2 ? std::filesystem::path{*iChannel2} : std::filesystem::path{};
+    monitor->iChannelPaths[3] =
+        iChannel3 ? std::filesystem::path{*iChannel3} : std::filesystem::path{};
+  }
 
   const auto programStartTime = std::chrono::system_clock::now();
-  auto transitionStartTime = std::chrono::system_clock::now();
   int frameNumber = 0;
 
   do {
@@ -279,69 +383,8 @@ int main(int argc, char **argv) {
 
     const auto renderStart = std::chrono::system_clock::now();
 
-    std::unique_lock lock{sMonitorMutex};
-    for (const auto &monitor : sMonitors) {
-      if (!monitor->initialized) {
-        continue;
-      }
-
-      if (monitor->renderer == nullptr) {
-        monitor->renderer = std::make_unique<VkPaperRenderer>(
-            wlDisplay, (wl_surface *)monitor->wlSurface->resource());
-
-        if (iChannel0) {
-          monitor->renderer->loadImageForSampler(0, *iChannel0);
-        }
-        if (iChannel1) {
-          monitor->renderer->loadImageForSampler(1, *iChannel1);
-        }
-        if (iChannel2) {
-          monitor->renderer->loadImageForSampler(2, *iChannel2);
-        }
-        if (iChannel3) {
-          monitor->renderer->loadImageForSampler(3, *iChannel3);
-        }
-      }
-
-      if (monitor->needsShaderReload) {
-        auto fragShaderCode = readBinaryFile(spirvUserOutput);
-        if (!fragShaderCode.has_value()) {
-          std::cerr << "Could not load user shader!\n";
-          monitor->needsShaderReload = false;
-          continue;
-        }
-        monitor->renderer->createGraphicsPipeline(*fragShaderCode);
-        monitor->needsShaderReload = false;
-        transitionStartTime = std::chrono::system_clock::now();
-      }
-
-      const auto timeSinceTransition =
-          std::chrono::system_clock::now() - transitionStartTime;
-      // todo make transition time configurable
-      const auto transitionTimeMs = 3000.0f;
-      auto transitionFactor =
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-              timeSinceTransition)
-              .count() /
-          transitionTimeMs;
-      transitionFactor = std::min(transitionFactor, 1.0f);
-      const auto currentUniforms = UniformBuffer{
-          timeSinceStartFloat,
-          0.0f,
-          60.0f,
-          frameNumber++,
-          transitionFactor,
-          0.0f,
-          0.0f,
-          0.0f,
-          Vec4{10, 10, 0, 0},
-          Vec3{static_cast<float>(monitor->width),
-               static_cast<float>(monitor->height), 0},
-      };
-
-      monitor->renderer->updateUniformBuffer(currentUniforms);
-      monitor->renderer->drawFrame();
-    }
+    renderWallpapersForAllMonitors(wlDisplay, frameNumber++,
+                                   timeSinceStartFloat);
 
     const auto renderEnd = std::chrono::system_clock::now();
     const auto duration = renderEnd - renderStart;
@@ -357,7 +400,6 @@ int main(int argc, char **argv) {
     //           << "ms, elapsed time: " << timeSinceStartFloat << "s"
     //           << "\n";
 
-    lock.unlock(); // release lock before sleep
     std::this_thread::sleep_for(sleepDuration);
   } while (wl_display_dispatch(wlDisplay) != -1);
 }
