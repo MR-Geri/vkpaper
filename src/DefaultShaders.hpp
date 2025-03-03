@@ -28,6 +28,11 @@ layout(std140, binding = 0) uniform UniformBufferObject {
     float iFrameRate;
     int iFrame;
 
+    float iTransition;
+    float _padding0;
+    float _padding1;
+    float _padding2;
+
     vec4 iMouse;
     vec3 iResolution;
 

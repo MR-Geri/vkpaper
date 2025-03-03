@@ -33,6 +33,11 @@ struct UniformBuffer {
   float iFrameRate;
   int iFrame;
 
+  float iTransition;
+  float _padding0;
+  float _padding1;
+  float _padding2;
+
   Vec4 iMouse;
   Vec3 iResolution;
 
@@ -66,6 +71,7 @@ public:
   void drawFrame();
   void updateUniformBuffer(UniformBuffer uniformBuffer);
   void loadImageForSampler(uint32_t samplerId, std::filesystem::path path);
+  void createGraphicsPipeline(const std::vector<char> &fragmentShaderBinary);
 
 private:
   void initVulkan();
@@ -82,7 +88,6 @@ private:
   void createSwapChain();
   void createImageViews();
   void createRenderPass();
-  void createGraphicsPipeline();
   void createFramebuffers();
   void createCommandPool();
   void createVertexBuffer();
@@ -100,18 +105,18 @@ private:
   QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 private:
-  VkInstance instance;
-  VkDebugUtilsMessengerEXT debugMessenger;
-  VkSurfaceKHR surface;
+  VkInstance instance{};
+  VkDebugUtilsMessengerEXT debugMessenger{};
+  VkSurfaceKHR surface{};
 
-  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-  VkDevice device;
+  VkPhysicalDevice physicalDevice{};
+  VkDevice device{};
 
-  VkQueue graphicsQueue;
-  VkQueue presentQueue;
+  VkQueue graphicsQueue{};
+  VkQueue presentQueue{};
 
   // swapchain
-  VkSwapchainKHR swapChain;
+  VkSwapchainKHR swapChain{};
   std::vector<VkImage> swapChainImages;
   VkFormat swapChainImageFormat;
   VkExtent2D swapChainExtent;
@@ -119,10 +124,11 @@ private:
   std::vector<VkFramebuffer> swapChainFramebuffers;
 
   // render passes and pipelines
-  VkRenderPass renderPass;
-  VkDescriptorSetLayout descriptorSetLayout;
-  VkPipelineLayout pipelineLayout;
-  VkPipeline graphicsPipeline;
+  VkRenderPass renderPass{};
+  VkDescriptorSetLayout descriptorSetLayout{};
+  VkPipelineLayout pipelineLayout{};
+  VkPipeline graphicsPipeline{};
+  VkShaderModule vertShaderModule{};
 
   // uniform buffers
   std::vector<VkBuffer> uniformBuffers;
@@ -130,15 +136,15 @@ private:
   std::vector<void *> uniformBuffersMapped;
 
   // descripors
-  VkDescriptorPool descriptorPool;
+  VkDescriptorPool descriptorPool{};
   std::vector<VkDescriptorSet> descriptorSets;
 
   // vertex buffers
-  VkBuffer vertexBuffer;
-  VkDeviceMemory vertexBufferMemory;
+  VkBuffer vertexBuffer{};
+  VkDeviceMemory vertexBufferMemory{};
 
   // command buffers
-  VkCommandPool commandPool;
+  VkCommandPool commandPool{};
   std::vector<VkCommandBuffer> commandBuffers;
 
   std::array<std::unique_ptr<VulkanImage>, MAX_SAMPLER> images;

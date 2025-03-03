@@ -28,8 +28,14 @@ add_executable(vkpaper src/main.cpp
 )
 target_link_libraries(vkpaper PRIVATE PkgConfig::deps vulkan)
 target_include_directories(vkpaper PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/thirdparty)
-
 set_target_properties(vkpaper PROPERTIES
     CXX_STANDARD 20
     CXX_EXTENSIONS OFF
 )
+
+add_executable(vkpaperctl src/vkpaperctl/main.cpp)
+set_target_properties(vkpaperctl PROPERTIES
+    CXX_STANDARD 20
+    CXX_EXTENSIONS OFF
+)
+target_include_directories(vkpaperctl PRIVATE ${CMAKE_SOURCE_DIR}/thirdparty)

@@ -3,17 +3,15 @@
 #include <DefaultShaders.hpp>
 #include <FileUtils.hpp>
 
-#include <shaderc/shaderc.h>
 #include <shaderc/shaderc.hpp>
 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <regex>
 
 bool compileShaderToSpirV(std::string shaderName, std::string shaderSource,
                           std::filesystem::path dstPath, bool isFragment) {
-  std::cout << "Compiling shader " << shaderName << "...\n";
-
   auto compiler = shaderc::Compiler{};
   auto compileOptions = shaderc::CompileOptions{};
   compileOptions.SetOptimizationLevel(
@@ -56,5 +54,33 @@ bool compileShaderToySnippetToSpirVFragment(std::filesystem::path srcPath,
   const auto shaderName = srcPath.filename().string();
 
   return compileShaderToSpirV(srcPath.string(), compositedShaderSrc, dstPath,
+                              true);
+}
+
+bool compileTransitionShaderToSpirVFragment(
+    std::filesystem::path transitionShader, std::filesystem::path srcShader,
+    std::filesystem::path targetShader, std::filesystem::path spirvOutputPath) {
+  auto transitionCode = readFile(transitionShader);
+  auto shaderToySourceCode = readFile(srcShader);
+  auto shaderToyTargetCode = readFile(targetShader);
+
+  if (!transitionCode || !shaderToySourceCode || !shaderToyTargetCode) {
+    return false;
+  }
+
+  shaderToySourceCode = std::regex_replace(
+      *shaderToySourceCode, std::regex("mainImage"), "mainImageSrc",
+      std::regex_constants::format_first_only);
+  shaderToyTargetCode = std::regex_replace(
+      *shaderToyTargetCode, std::regex("mainImage"), "mainImageTgt",
+      std::regex_constants::format_first_only);
+
+  const auto compositedShaderSrc = fragmentPre + *shaderToySourceCode +
+                                   *shaderToyTargetCode + *transitionCode +
+                                   fragmentPost;
+
+  const auto shaderName = "transition";
+
+  return compileShaderToSpirV(shaderName, compositedShaderSrc, spirvOutputPath,
                               true);
 }

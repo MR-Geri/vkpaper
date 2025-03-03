@@ -82,17 +82,6 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(
   return availableFormats[0];
 }
 
-VkPresentModeKHR chooseSwapPresentMode(
-    const std::vector<VkPresentModeKHR> &availablePresentModes) {
-  for (const auto &availablePresentMode : availablePresentModes) {
-    if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-      return availablePresentMode;
-    }
-  }
-
-  return VK_PRESENT_MODE_FIFO_KHR;
-}
-
 VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
   if (capabilities.currentExtent.width !=
       std::numeric_limits<uint32_t>::max()) {
@@ -201,7 +190,21 @@ void VkPaperRenderer::initVulkan() {
   createImageViews();
   createRenderPass();
   createDescriptorSetLayout();
-  createGraphicsPipeline();
+
+  auto fragShaderCode = readBinaryFile("/tmp/vkshader/user.frag.spv");
+  if (!fragShaderCode.has_value()) {
+    std::cerr << "Could not load shadertoy compatible input file. Falling back "
+                 "to default shader...\n";
+    fragShaderCode = readBinaryFile("/tmp/vkshader/default.frag.spv");
+  }
+
+  if (!fragShaderCode.has_value()) {
+    std::cerr
+        << "Could not load default vertex or fragment shaders! Aborting...\n";
+    exit(1);
+  }
+  createGraphicsPipeline(*fragShaderCode);
+
   createFramebuffers();
   createCommandPool();
   createVertexBuffer();
@@ -248,6 +251,7 @@ void VkPaperRenderer::cleanup() {
   vkDestroyPipeline(device, graphicsPipeline, nullptr);
   vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
   vkDestroyRenderPass(device, renderPass, nullptr);
+  vkDestroyShaderModule(device, vertShaderModule, nullptr);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyBuffer(device, uniformBuffers[i], nullptr);
@@ -445,8 +449,7 @@ void VkPaperRenderer::createSwapChain() {
 
   VkSurfaceFormatKHR surfaceFormat =
       chooseSwapSurfaceFormat(swapChainSupport.formats);
-  VkPresentModeKHR presentMode =
-      chooseSwapPresentMode(swapChainSupport.presentModes);
+  VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
   VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
   uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
@@ -566,41 +569,11 @@ void VkPaperRenderer::createRenderPass() {
   }
 }
 
-void VkPaperRenderer::createGraphicsPipeline() {
-  auto vertShaderCode = readBinaryFile("/tmp/vkshader/default.vert.spv");
-  auto fragShaderCode = readBinaryFile("/tmp/vkshader/user.frag.spv");
-
-  if (!fragShaderCode.has_value()) {
-    std::cerr << "Could not load shadertoy compatible input file. Falling back "
-                 "to default shader...\n";
-    fragShaderCode = readBinaryFile("/tmp/vkshader/default.frag.spv");
-  }
-
-  if (!vertShaderCode.has_value() || !fragShaderCode.has_value()) {
-    std::cerr
-        << "Could not load default vertex or fragment shaders! Aborting...\n";
-    exit(1);
-  }
-
-  VkShaderModule vertShaderModule = createShaderModule(*vertShaderCode);
-  VkShaderModule fragShaderModule = createShaderModule(*fragShaderCode);
-
-  VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-  vertShaderStageInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-  vertShaderStageInfo.module = vertShaderModule;
-  vertShaderStageInfo.pName = "main";
-
-  VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-  fragShaderStageInfo.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  fragShaderStageInfo.module = fragShaderModule;
-  fragShaderStageInfo.pName = "main";
-
-  VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo,
-                                                    fragShaderStageInfo};
+void VkPaperRenderer::createGraphicsPipeline(
+    const std::vector<char> &fragmentShaderBinary) {
+  // we need to wait for frames in flight before destroying and reconstructing a
+  // graphics pipeline
+  vkDeviceWaitIdle(device);
 
   VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
   vertexInputInfo.sType =
@@ -667,16 +640,46 @@ void VkPaperRenderer::createGraphicsPipeline() {
   dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
   dynamicState.pDynamicStates = dynamicStates.data();
 
-  VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-  pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayoutInfo.setLayoutCount = 1;
-  pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-  pipelineLayoutInfo.pushConstantRangeCount = 0;
+  if (pipelineLayout == VK_NULL_HANDLE) {
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
 
-  if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
-                             &pipelineLayout) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create pipeline layout!");
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
+                               &pipelineLayout) != VK_SUCCESS) {
+      throw std::runtime_error("failed to create pipeline layout!");
+    }
   }
+
+  if (vertShaderModule == VK_NULL_HANDLE) {
+    auto vertShaderCode = readBinaryFile("/tmp/vkshader/default.vert.spv");
+    if (!vertShaderCode.has_value()) {
+      std::cerr
+          << "Could not load default vertex or fragment shaders! Aborting...\n";
+      exit(1);
+    }
+    vertShaderModule = createShaderModule(vertShaderCode.value());
+  }
+  auto fragShaderModule = createShaderModule(fragmentShaderBinary);
+
+  VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+  vertShaderStageInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+  vertShaderStageInfo.module = vertShaderModule;
+  vertShaderStageInfo.pName = "main";
+
+  VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+  fragShaderStageInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+  fragShaderStageInfo.module = fragShaderModule;
+  fragShaderStageInfo.pName = "main";
+
+  VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo,
+                                                    fragShaderStageInfo};
 
   VkGraphicsPipelineCreateInfo pipelineInfo{};
   pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -694,13 +697,16 @@ void VkPaperRenderer::createGraphicsPipeline() {
   pipelineInfo.subpass = 0;
   pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
+  if (graphicsPipeline != VK_NULL_HANDLE) {
+    vkDestroyPipeline(device, graphicsPipeline, nullptr);
+  }
+
   if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
                                 nullptr, &graphicsPipeline) != VK_SUCCESS) {
     throw std::runtime_error("failed to create graphics pipeline!");
   }
 
   vkDestroyShaderModule(device, fragShaderModule, nullptr);
-  vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }
 
 void VkPaperRenderer::createFramebuffers() {
@@ -1061,8 +1067,13 @@ void VkPaperRenderer::drawFrame() {
 }
 
 void VkPaperRenderer::updateUniformBuffer(UniformBuffer uniformBuffer) {
-  memcpy(uniformBuffersMapped[currentFrame], &uniformBuffer,
-         sizeof(uniformBuffer));
+  for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+
+    memcpy(uniformBuffersMapped[i], &uniformBuffer, sizeof(uniformBuffer));
+  }
+
+  // memcpy(uniformBuffersMapped[currentFrame], &uniformBuffer,
+  //        sizeof(uniformBuffer));
 }
 
 VkShaderModule
