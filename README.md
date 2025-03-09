@@ -5,16 +5,16 @@ A WIP Vulkan based wallpaper engine for wayland compositors which implement `wlr
 ## TODO
 
 - correctly react to hotswapping, currently wl_display_dispatch blocks if a display is added and rendering from two renderers
-- read configuration from `$HOME/.config/vkpaper` (as alternative to setting the shader directly via command line)
-- let the user specify an alternative configuration via command line
+- correctly handle iChannel0-3 during transitions
+  - need to rename iChannel0 -> iChannel0Src for source shader and so on
+  - then handle mapping via descriptor sets
+- after animation finishes, switch to target shader only
 
 future features:
 - auto reload via filesystem watchers
-- support reading input textures similarly to ShaderToy (very useful for noise texture inputs)
 - allow setting an FPS limit
-- allow textures as an input in addition to shaders (making vkpaper also useful as a regular wallpaper daemon)
-  - note: in texture mode we can stop rendering to limit GPU usage
-- support animations between multiple configurations (for both shaders and texture modes)
+- add "static mode" for shaders, so we can stop rendering to limit GPU usage
+  - mostly useful for simple wallpaper mode
 
 ## Collection of amazing Shadertoy wallpapers
 
@@ -34,6 +34,11 @@ future features:
 - https://www.shadertoy.com/view/4t23RR
 - https://www.shadertoy.com/view/7ldcRH
 - https://www.shadertoy.com/view/XlsXDB
+
+## Similar tools
+
+- swww
+- hyprpaper
 
 ## Shoutout to
 
