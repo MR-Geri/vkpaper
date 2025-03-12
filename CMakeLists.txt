@@ -39,3 +39,5 @@ set_target_properties(vkpaperctl PROPERTIES
     CXX_EXTENSIONS OFF
 )
 target_include_directories(vkpaperctl PRIVATE ${CMAKE_SOURCE_DIR}/thirdparty)
+
+install(TARGETS vkpaper vkpaperctl)
