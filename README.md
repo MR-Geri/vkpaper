@@ -1,17 +1,19 @@
 # vkpaper
 
 A Vulkan based wallpaper engine for wayland compositors which implement `wlr_layer_shell` (tested on hyprland and KDE Plasma).
-It can render (most) shaders in ShaderToy format and provides a way to write your own transitions.
+It can render (most) shaders in [ShaderToy](https://www.shadertoy.com/) format and provides a way to write your own transitions.
 
 **vkpaper is in alpha**: The interface of vkpaper can (and probably will) change at some point. Please open issues if you find bugs or you have use cases which are not covered.
 
 ## Demo
 
-[Demo](https://cgphilipp.de/...)
+In this video I showcase three transition shaders: a noisy transition, a growing ellipse and a simple move-in animation. Shader credit goes to [knarkowicz](https://www.shadertoy.com/view/4s2yW1) and [nimitz](https://www.shadertoy.com/view/Mts3zM).
+
+https://cgphilipp.de/video/screencast-vkpaper.webm
 
 ## Shader compatibility
 
-I am trying to make vkpaper shaders as compatible with [ShaderToy](https://shadertoy.com) as possible.
+I am trying to make vkpaper shaders as compatible with [ShaderToy](https://shadertoy.com/) as possible.
 Therefore, vkpaper supports all uniform inputs with the same names as given by ShaderToy.
 
 **Note**: at the moment the following ShaderToy uniforms exist (to allow shader compilation), but do not have the correct values:
@@ -44,7 +46,7 @@ To use a shader with texture inputs use:
 vkpaper <path to shader> -iChannel0 <path to image>
 ```
 Up to 4 texture inputs are supported via the flags `-iChannel0` through `-iChannel3`.
-Currently, all image type supported by [stb_image]() are supported. This includes jpg, png, bmp, gif and more.
+Currently, all image type supported by [stb_image](https://github.com/nothings/stb) are supported. This includes jpg, png, bmp, gif and more.
 
 **2. option: Start vkpaper in daemon mode and use vkpaperctl to switch between shaders:**
 
@@ -102,8 +104,8 @@ But combining the shaders has the advantage of being easier to implement/maintai
 
 ## Similar tools
 
-- swww (this gave me the idea to use socket-based communication for `vkpapertctl`)
-- hyprpaper (a simpler alternative if all you want are images)
+- [swww](https://github.com/LGFae/swww) (this gave me the idea to use socket-based communication for `vkpapertctl`)
+- [hyprpaper](https://github.com/hyprwm/hyprpaper) (a simpler alternative if all you want are images)
 
 ## Shoutout to
 
