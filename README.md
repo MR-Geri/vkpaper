@@ -36,6 +36,14 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make
 ```
+
+To install `vkpaper` on your system call this in the "build" directory:
+```sh
+sudo make install
+```
+
+## Usage
+
 **1. option: Start vkpaper with a single shader:**
 ```sh
 vkpaper <path to shader>
@@ -50,18 +58,11 @@ Currently, all image type supported by [stb_image](https://github.com/nothings/s
 
 **2. option: Start vkpaper in daemon mode and use vkpaperctl to switch between shaders:**
 
-Start `vkpaper` without any arguments as par
-
-To install `vkpaper` on your system call this in the "build" directory:
-```sh
-sudo make install
-```
-
-## Usage
-t of your window manager or run it as a background process like this:
+Start `vkpaper` without any arguments as part of your window manager or run it as a background process like this:
 ```sh
 vkpaper &
 ```
+
 While vkpaper is running, you can now issue commands via `vkpaperctl` to switch shaders dynamically. Or write your own shell scripts to issue `vkpaperctl`  commands based on time, key presses etc. Get creative with it :)
 
 *Switch to a shader instantaneously:*
@@ -104,14 +105,14 @@ But combining the shaders has the advantage of being easier to implement/maintai
 
 ## Similar tools
 
-- [swww](https://github.com/LGFae/swww) (this gave me the idea to use socket-based communication for `vkpapertctl`)
-- [hyprpaper](https://github.com/hyprwm/hyprpaper) (a simpler alternative if all you want are images)
+- [swww](https://github.com/LGFae/swww) - this gave me the idea to use socket-based communication for `vkpaperctl`, they also have amazing performance for animated backgrounds using gifs, check it out!
+- [hyprpaper](https://github.com/hyprwm/hyprpaper) - a simpler alternative if all you want are static images
 
 ## Shoutout to
 
-- https://github.com/Taywee/args for providing an awesome header-only option parsing library
-- https://github.com/Overv/VulkanTutorial for providing a starting point for the vulkan implementation
-- https://github.com/hyprwm/hyprpaper for showing how to integrate `wlr_layer_shell`
+- [args](https://github.com/Taywee/args) for providing an awesome header-only option parsing library
+- [VulkanTutorial](https://github.com/Overv/VulkanTutorial) for providing a starting point for the vulkan implementation
+- [hyprpaper](https://github.com/hyprwm/hyprpaper) for showing how to integrate `wlr_layer_shell`
 
 ## TODO
 
