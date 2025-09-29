@@ -4,6 +4,7 @@
 #include <Socket.hpp>
 #include <VkPaperRenderer.hpp>
 
+#include <cmath>
 #include <protocols/wayland.hpp>
 #include <protocols/wlr-layer-shell-unstable-v1.hpp>
 
@@ -281,6 +282,10 @@ int main(int argc, char **argv) {
       parser, "shader file",
       "The fragment shader (in Shadertoy compatible format) to use as your "
       "wallpaper."};
+
+  args::ValueFlag<float> speed{parser, "speed", "speed", {"speed"}};
+  args::ValueFlag<int> sleeping{parser, "sleep", "sleep", {"sleep"}};
+
   args::ValueFlag<std::string> iChannel0{parser,
                                          "iChannel0",
                                          "Input image to use as iChannel0",
@@ -374,32 +379,17 @@ int main(int argc, char **argv) {
   do {
     checkAndCreateLayerSurfaces(wlDisplay);
 
-    const auto timeSinceStart =
-        std::chrono::system_clock::now() - programStartTime;
-    const auto timeSinceStartFloat =
-        std::chrono::duration_cast<std::chrono::milliseconds>(timeSinceStart)
-            .count() /
-        1000.0f;
-
+    const auto timeSinceStart = std::chrono::system_clock::now() - programStartTime;
+    const auto timeSinceStartFloat = std::chrono::duration_cast<std::chrono::milliseconds>(timeSinceStart).count() / 1000.0f * (*speed);
     const auto renderStart = std::chrono::system_clock::now();
 
-    renderWallpapersForAllMonitors(wlDisplay, frameNumber++,
-                                   timeSinceStartFloat);
+    renderWallpapersForAllMonitors(wlDisplay, frameNumber++, timeSinceStartFloat);
 
     const auto renderEnd = std::chrono::system_clock::now();
     const auto duration = renderEnd - renderStart;
-    const auto sleepDuration = std::chrono::milliseconds{16} -
-                               duration; // todo: ensure this is positive
-    const auto durationUs =
-        std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-    const auto sleepTimeUs =
-        std::chrono::duration_cast<std::chrono::microseconds>(sleepDuration)
-            .count();
-    // std::cout << "rendered vkpaper frame in " << durationUs / 1000.0f
-    //           << "ms, sleeping for " << sleepTimeUs / 1000.0f
-    //           << "ms, elapsed time: " << timeSinceStartFloat << "s"
-    //           << "\n";
+    const auto sleepDuration = std::chrono::milliseconds{*sleeping} - duration;
 
     std::this_thread::sleep_for(sleepDuration);
   } while (wl_display_dispatch(wlDisplay) != -1);
 }
+

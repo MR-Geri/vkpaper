@@ -27,6 +27,17 @@ There are some features that are out of scope at this point:
 - videos, cubemaps, volume textures as sampler inputs
 - mouse input
 
+## Settings
+Configure your permission in the file src/VkPaperRenderer.cpp in 91-92 line:
+```
+    int width = 2560;
+    int height = 1440;
+```
+
+If you have multiple monitors, choose the highest resolution.
+
+*This solution is temporary and will be configured dynamically later*
+
 ## Building
 
 In the root directory of this repository, build vkpaper with
@@ -46,12 +57,18 @@ sudo make install
 
 **1. option: Start vkpaper with a single shader:**
 ```sh
-vkpaper <path to shader>
+vkpaper <path to shader> --speed 0.01 --sleep 100
 ```
+speed: animation speed, the lower the value, the slower the shader animation
+
+sleep: time between frame redraws, the longer - the less frames per second are drawn, you need to reduce the load on the GPU.
+
+
+You need to select both values in such a way that the animation is smooth (sleep) and at the desired speed (speed)
 
 To use a shader with texture inputs use:
 ```sh
-vkpaper <path to shader> -iChannel0 <path to image>
+vkpaper <path to shader> --speed 0.01 --sleep 100 -iChannel0 <path to image>
 ```
 Up to 4 texture inputs are supported via the flags `-iChannel0` through `-iChannel3`.
 Currently, all image type supported by [stb_image](https://github.com/nothings/stb) are supported. This includes jpg, png, bmp, gif and more.
@@ -60,7 +77,7 @@ Currently, all image type supported by [stb_image](https://github.com/nothings/s
 
 Start `vkpaper` without any arguments as part of your window manager or run it as a background process like this:
 ```sh
-vkpaper &
+vkpaper --speed 0.01 --sleep 100 &
 ```
 
 While vkpaper is running, you can now issue commands via `vkpaperctl` to switch shaders dynamically. Or write your own shell scripts to issue `vkpaperctl`  commands based on time, key presses etc. Get creative with it :)
@@ -87,7 +104,7 @@ void mainImage(out vec4 frag_color, in vec2 frag_coord) {
     vec4 srcColor;
     mainImageSrc(srcColor, frag_coord);
     vec4 tgtColor;
-    mainImageTgt(tgtColor, frag_coord); 
+    mainImageTgt(tgtColor, frag_coord);
 
     frag_color = mix(srcColor, tgtColor, iTransition);
 }
